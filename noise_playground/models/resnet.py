@@ -86,6 +86,54 @@ class CifarResNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+        self.noise_layer_idx = -1
+        self.noise_factor = 0.1
+        self.apply_feature_noise = False
+        self.apply_weight_noise = False
+        self._original_weight = None
+
+        def pre_hook(idx, module, inputs):
+            if idx == self.noise_layer_idx:
+                with torch.no_grad():
+                    if self.apply_feature_noise:
+                        inputs = map(
+                            lambda x: x * (1 + torch.randn_like(x) * self.noise_factor),
+                            inputs,
+                        )
+                        inputs = tuple(inputs)
+                    if self.apply_weight_noise:
+                        self._original_weight = module.weight
+                        module.weight = nn.Parameter(self._original_weight * (
+                            1 + torch.randn_like(module.weight) * self.noise_factor
+                        ))
+                return inputs
+
+        def after_hook(idx, module, inputs, outputs):
+            if idx == self.noise_layer_idx:
+                with torch.no_grad():
+                    if self.apply_weight_noise:
+                        module.weight = self._original_weight
+
+        idx = 0
+        for m in [self.conv1]:
+            m.register_forward_pre_hook(partial(pre_hook, idx))
+            m.register_forward_hook(partial(after_hook, idx))
+            idx += 1
+
+        for blocks in [self.layer1, self.layer2, self.layer3]:
+            for block in blocks:
+                for m in [block.conv1, block.conv2]:
+                    m.register_forward_pre_hook(partial(pre_hook, idx))
+                    m.register_forward_hook(partial(after_hook, idx))
+                    idx += 1
+
+        for m in [self.fc]:
+            m.register_forward_pre_hook(partial(pre_hook, idx))
+            m.register_forward_hook(partial(after_hook, idx))
+            idx += 1
+
+        self.num_layers = idx
+
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:

@@ -63,7 +63,7 @@ def build_dataloader_and_model(
 def inference(dataloader, model, device):
     acc1 = AverageMeter("Acc@1", ":6.2f")
     acc5 = AverageMeter("Acc@5", ":6.2f")
-    for (inputs, labels) in tqdm(dataloader):
+    for (inputs, labels) in dataloader:
         inputs = inputs.to(device)
         labels = labels.to(device)
 
@@ -96,9 +96,9 @@ def main():
     model.eval()
     model.to(device)
 
-    for layer_idx in range(model.num_layers):
-        for noise_factor in [0.1, 0.5, 1.0]:
-            for noise_type in ["feature_noise", "weight_noise"]:
+    for noise_type in ["feature_noise", "weight_noise"]:
+        for noise_factor in [0.1]:
+            for layer_idx in range(model.num_layers):
                 model.noise_layer_idx = layer_idx
                 model.noise_factor = noise_factor
                 if noise_type == "feature_noise":
@@ -107,7 +107,7 @@ def main():
                     model.apply_weight_noise = True
 
                 acc1, acc5 = inference(dataloader, model, device)
-                print(layer_idx, noise_factor, noise_type, acc1, acc5)
+                print(noise_type, noise_factor, layer_idx, "\t", acc1, acc5)
 
 
 if __name__ == "__main__":
