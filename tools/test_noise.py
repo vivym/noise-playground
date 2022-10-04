@@ -96,18 +96,18 @@ def main():
     model.eval()
     model.to(device)
 
-    for noise_type in ["feature_noise", "weight_noise"]:
-        for noise_factor in [0.1]:
-            for layer_idx in range(model.num_layers):
-                model.noise_layer_idx = layer_idx
-                model.noise_factor = noise_factor
-                if noise_type == "feature_noise":
-                    model.apply_feature_noise = True
-                if noise_type == "weight_noise":
-                    model.apply_weight_noise = True
+    for layer_idx in range(model.num_layers):
+        for noise_type in ["feature_noise", "weight_noise"]:
+            model.noise_layer_idx = layer_idx
+            model.noise_factor = 1.0
+            if noise_type == "feature_noise":
+                model.apply_feature_noise = True
+            if noise_type == "weight_noise":
+                model.apply_weight_noise = True
 
-                acc1, acc5 = inference(dataloader, model, device)
-                print(noise_type, noise_factor, layer_idx, "\t", acc1, acc5)
+            acc1, acc5 = inference(dataloader, model, device)
+            print(noise_type, "\t", layer_idx, "\t", acc1, acc5)
+        print("-" * 50)
 
 
 if __name__ == "__main__":
