@@ -1,7 +1,7 @@
 import argparse
 
-from tqdm import tqdm
 import torch
+import pandas as pd
 from torchvision import datasets, transforms
 
 from noise_playground import models
@@ -13,6 +13,7 @@ def build_dataloader_and_model(
     batch_size: int,
     num_workers: int,
     model_name: str,
+    dataset_root: str = "./data",
 ):
     if dataset_name == "cifar10":
         transform = transforms.Compose([
@@ -23,7 +24,7 @@ def build_dataloader_and_model(
             ),
         ])
         dataset = datasets.CIFAR10(
-            root="./data",
+            root=dataset_root,
             train=False,
             download=True,
             transform=transform,
@@ -37,7 +38,7 @@ def build_dataloader_and_model(
             ),
         ])
         dataset = datasets.CIFAR100(
-            root="./data",
+            root=dataset_root,
             train=False,
             download=True,
             transform=transform,
@@ -63,7 +64,9 @@ def build_dataloader_and_model(
 def inference(dataloader, model, device):
     acc1 = AverageMeter("Acc@1", ":6.2f")
     acc5 = AverageMeter("Acc@5", ":6.2f")
+    labels_list = []
     for (inputs, labels) in dataloader:
+        labels_list.append(labels)
         inputs = inputs.to(device)
         labels = labels.to(device)
 
@@ -73,7 +76,7 @@ def inference(dataloader, model, device):
         acc1.update(acc1_.item(), inputs.shape[0])
         acc5.update(acc5_.item(), inputs.shape[0])
 
-    return acc1.avg, acc5.avg
+    return labels_list
 
 
 def main():
@@ -95,20 +98,25 @@ def main():
     )
     model.eval()
     model.to(device)
-    model.register_noise_hooks()
+    model.register_importance_hooks()
 
-    for layer_idx in range(model.num_layers):
-        for noise_type in ["feature_noise", "weight_noise"]:
-            model.noise_layer_idx = layer_idx
-            model.noise_factor = 1.0
-            if noise_type == "feature_noise":
-                model.apply_feature_noise = True
-            if noise_type == "weight_noise":
-                model.apply_weight_noise = True
+    labels_list = inference(dataloader, model, device)
+    labels = torch.cat(labels_list, dim=0)
+    print("labels: ", labels.shape)
 
-            acc1, acc5 = inference(dataloader, model, device)
-            print(noise_type, "\t", layer_idx, "\t", acc1, acc5)
-        print("-" * 50)
+    importances = model.get_importances()
+
+    scores = torch.cat(importances[0], dim=0)
+    print("scores: ", scores.shape)
+    # max_rows = max(map(lambda x: x.shape[0], importances))
+
+    # df = pd.DataFrame(index=range(max_rows))
+    # for idx, layer_scores in enumerate(importances):
+    #     layer_scores = layer_scores.cpu().sort(descending=True)[0].numpy()
+    #     df[f"Layer {idx + 1}"] = pd.Series(layer_scores)
+
+    # df.to_excel(excel_writer="data/importances.xlsx")
+    print(len(importances), len(importances[0]))
 
 
 if __name__ == "__main__":

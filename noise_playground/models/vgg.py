@@ -43,6 +43,7 @@ class VGG(nn.Module):
         if init_weights:
             self._initialize_weights()
 
+    def register_noise_hooks(self):
         self.noise_layer_idx = -1
         self.noise_factor = 0.1
         self.apply_feature_noise = False
@@ -85,6 +86,25 @@ class VGG(nn.Module):
                 idx += 1
 
         self.num_layers = idx
+
+    def register_importance_hooks(self):
+        def after_hook(idx, module, inputs, outputs):
+            with torch.no_grad():
+                # batch_size, num_channels, h, w
+                importance = outputs.flatten(2).abs().mean(-1)
+                self.importances[idx].append(importance)
+
+        idx = 0
+        for m in self.features:
+            if isinstance(m, nn.Conv2d):
+                m.register_forward_hook(partial(after_hook, idx))
+                idx += 1
+
+        self.num_layers = idx
+        self.importances = [[] for _ in range(self.num_layers)]
+
+    def get_importances(self):
+        return self.importances
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
