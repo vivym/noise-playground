@@ -116,7 +116,6 @@ def main():
     #     df[f"Layer {idx + 1}"] = pd.Series(layer_scores)
 
     # df.to_excel(excel_writer="data/importances.xlsx")
-    print(len(importances), len(importances[0]))
 
 
 if __name__ == "__main__":
