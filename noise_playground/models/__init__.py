@@ -18,3 +18,4 @@ from .resnet import (
     cifar100_resnet44,
     cifar100_resnet56,
 )
+from .resnet2 import resnet34 as imagenet_resnet34

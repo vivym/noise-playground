@@ -127,53 +127,49 @@ def inference(dataloader, model, device):
 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--model", type=str, default="vgg16")
-    # parser.add_argument("--dataset", type=str, default="cifar10")
-    # parser.add_argument("--batch_size", type=int, default=64)
-    # parser.add_argument("--num_workers", type=int, default=4)
-    # parser.add_argument("--cpu", action="store_true")
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, default="vgg16")
+    parser.add_argument("--dataset", type=str, default="cifar10")
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--cpu", action="store_true")
+    args = parser.parse_args()
 
-    # device = torch.device("cpu" if args.cpu else "cuda")
+    device = torch.device("cpu" if args.cpu else "cuda")
 
-    # dataloader, model = build_dataloader_and_model(
-    #     dataset_name=args.dataset,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     model_name=args.model,
-    # )
-    # model.eval()
-    # model.to(device)
-    # model.register_importance_hooks()
+    dataloader, model = build_dataloader_and_model(
+        dataset_name=args.dataset,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        model_name=args.model,
+    )
+    model.eval()
+    model.to(device)
+    model.register_importance_hooks()
+    print(model)
+    return
 
-    # labels_list = inference(dataloader, model, device)
-    # labels = torch.cat(labels_list, dim=0)
+    labels_list = inference(dataloader, model, device)
+    labels = torch.cat(labels_list, dim=0)
 
-    # importances = model.get_importances()
-    # importances = [
-    #     torch.cat(scores, dim=0)
-    #     for scores in importances
-    # ]
-
-    # torch.save((importances, labels), "data/scores.pth")
-    importances, labels = torch.load("data/scores.pth")
-    # print(labels.unique().sort())
+    importances = model.get_importances()
+    importances = [
+        torch.cat(scores, dim=0)
+        for scores in importances
+    ]
 
     scores_per_class = []
-    for c in range(1, 1001):
+    for c in range(10):
         mask = labels == c
-        assert mask.sum().item() > 0
         scores_per_class.append([scores[mask].mean(0) for scores in importances])
 
     results = []
     for layer_idx in range(len(importances)):
         scores = torch.stack([
             scores_per_class[c][layer_idx]
-            for c in range(len(scores_per_class))
+            for c in range(10)
         ], dim=0)
         scores = scores.max(0)[0]
-        print("scores", scores.shape, scores.mean())
         results.append(scores)
 
     max_rows = max(map(lambda x: x.shape[0], results))

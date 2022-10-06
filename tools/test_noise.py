@@ -1,4 +1,6 @@
 import argparse
+from pathlib import Path
+from PIL import Image
 
 from tqdm import tqdm
 import torch
@@ -13,6 +15,7 @@ def build_dataloader_and_model(
     batch_size: int,
     num_workers: int,
     model_name: str,
+    dataset_root: str = "./data",
 ):
     if dataset_name == "cifar10":
         transform = transforms.Compose([
@@ -23,7 +26,7 @@ def build_dataloader_and_model(
             ),
         ])
         dataset = datasets.CIFAR10(
-            root="./data",
+            root=dataset_root,
             train=False,
             download=True,
             transform=transform,
@@ -36,10 +39,25 @@ def build_dataloader_and_model(
                 (0.2673, 0.2564, 0.2761),
             ),
         ])
+        datasets.ImageFolder
         dataset = datasets.CIFAR100(
-            root="./data",
+            root=dataset_root,
             train=False,
             download=True,
+            transform=transform,
+        )
+    elif dataset_name == "imagenet":
+        transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                (0.485, 0.456, 0.406),
+                (0.229, 0.224, 0.225),
+            ),
+        ])
+        dataset = datasets.ImageFolder(
+            Path(dataset_root) / "imagenet" / "val",
             transform=transform,
         )
     else:
@@ -60,10 +78,10 @@ def build_dataloader_and_model(
 
 
 @torch.no_grad()
-def inference(dataloader, model, device):
+def inference(dataloader, model, device, use_tqdm = False):
     acc1 = AverageMeter("Acc@1", ":6.2f")
     acc5 = AverageMeter("Acc@5", ":6.2f")
-    for (inputs, labels) in dataloader:
+    for (inputs, labels) in (dataloader if not use_tqdm else tqdm(dataloader)):
         inputs = inputs.to(device)
         labels = labels.to(device)
 
@@ -96,6 +114,10 @@ def main():
     model.eval()
     model.to(device)
     model.register_noise_hooks()
+
+    acc1, acc5 = inference(dataloader, model, device, use_tqdm=True)
+    print("original", "\t", acc1, acc5)
+    return
 
     for layer_idx in range(model.num_layers):
         for noise_type in ["feature_noise", "weight_noise"]:
