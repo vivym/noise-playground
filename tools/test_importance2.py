@@ -11,35 +11,6 @@ from noise_playground import models
 from noise_playground.metrics import accuracy, AverageMeter
 
 
-class ImageNetDataset(torch.utils.data.Dataset):
-    def __init__(self, root: Path, transform):
-        super().__init__()
-
-        annos_path = root / "imagenet" / "ILSVRC2012_validation_ground_truth.txt"
-        with open(annos_path, "r") as f:
-            labels = f.readlines()
-        labels = map(lambda x: x.strip(), labels)
-        labels = filter(lambda x: len(x) > 0, labels)
-        labels = map(lambda x: int(x), labels)
-        labels = list(labels)
-
-        self.root = root
-        self.transform = transform
-        self.labels = labels
-
-    def __getitem__(self, idx):
-        label = self.labels[idx]
-
-        image = Image.open(
-            self.root / "imagenet" / f"ILSVRC2012_val_{idx + 1:08d}.JPEG"
-        ).convert("RGB")
-
-        return self.transform(image), label
-
-    def __len__(self):
-        return len(self.labels)
-
-
 def build_dataloader_and_model(
     dataset_name: str,
     batch_size: int,
@@ -86,8 +57,8 @@ def build_dataloader_and_model(
                 (0.229, 0.224, 0.225),
             ),
         ])
-        dataset = ImageNetDataset(
-            root=Path(dataset_root),
+        dataset = datasets.ImageFolder(
+            Path(dataset_root) / "imagenet" / "val",
             transform=transform,
         )
     else:
@@ -127,36 +98,37 @@ def inference(dataloader, model, device):
 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--model", type=str, default="vgg16")
-    # parser.add_argument("--dataset", type=str, default="cifar10")
-    # parser.add_argument("--batch_size", type=int, default=64)
-    # parser.add_argument("--num_workers", type=int, default=4)
-    # parser.add_argument("--cpu", action="store_true")
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, default="vgg16")
+    parser.add_argument("--dataset", type=str, default="cifar10")
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--cpu", action="store_true")
+    args = parser.parse_args()
 
-    # device = torch.device("cpu" if args.cpu else "cuda")
+    device = torch.device("cpu" if args.cpu else "cuda")
 
-    # dataloader, model = build_dataloader_and_model(
-    #     dataset_name=args.dataset,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     model_name=args.model,
-    # )
-    # model.eval()
-    # model.to(device)
-    # model.register_importance_hooks()
+    dataloader, model = build_dataloader_and_model(
+        dataset_name=args.dataset,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        model_name=args.model,
+    )
+    model.eval()
+    model.to(device)
+    model.register_importance_hooks()
 
-    # labels_list = inference(dataloader, model, device)
-    # labels = torch.cat(labels_list, dim=0)
+    labels_list = inference(dataloader, model, device)
+    labels = torch.cat(labels_list, dim=0)
 
-    # importances = model.get_importances()
-    # importances = [
-    #     torch.cat(scores, dim=0)
-    #     for scores in importances
-    # ]
+    importances = model.get_importances()
+    importances = [
+        torch.cat(scores, dim=0)
+        for scores in importances
+    ]
 
-    # torch.save((importances, labels), "data/scores.pth")
+    torch.save((importances, labels), "data/scores.pth")
+    return
     importances, labels = torch.load("data/scores.pth")
     # print(labels.unique().sort())
 

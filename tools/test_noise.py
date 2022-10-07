@@ -113,11 +113,14 @@ def main():
     )
     model.eval()
     model.to(device)
-    model.register_noise_hooks()
+    if hasattr(model, "register_noise_hooks"):
+        model.register_noise_hooks()
+    else:
+        assert hasattr(model, "noise_layer_idx")
 
     acc1, acc5 = inference(dataloader, model, device, use_tqdm=True)
+    print("model and dataset:", args.model, args.dataset)
     print("original", "\t", acc1, acc5)
-    return
 
     for layer_idx in range(model.num_layers):
         for noise_type in ["feature_noise", "weight_noise"]:

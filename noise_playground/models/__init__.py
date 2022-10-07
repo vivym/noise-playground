@@ -19,3 +19,5 @@ from .resnet import (
     cifar100_resnet56,
 )
 from .resnet2 import resnet34 as imagenet_resnet34
+from .vgg2 import vgg16 as imagenet_vgg16
+from .alexnet2 import alexnet as imagenet_alexnet
